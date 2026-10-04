@@ -3,20 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>跨海光缆故障与抢修协调</title>
+  <title>跨海光缆故障与抢修协调 · 抢修编队台</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; color: #17212b; }
-    main { max-width: 960px; margin: auto; }
+    main { max-width: 1024px; margin: auto; }
     button { padding: .55rem .9rem; cursor: pointer; }
     pre { background: #f4f6f8; padding: 1rem; overflow: auto; border-radius: 8px; }
-    .row { display: flex; gap: 1rem; align-items: center; }
+    .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: .75rem; }
+    h2 { margin-top: 2rem; font-size: 1.1rem; color: #2b5f8a; }
   </style>
 </head>
 <body>
 <main>
-  <h1>跨海光缆故障与抢修协调</h1>
-  <p>最小演示页。完整业务流程通过README中的JSON接口调用。</p>
-  <div class="row"><button id="load">加载记录</button><button id="stats">查看状态统计</button></div>
+  <h1>跨海光缆故障与抢修协调 · 抢修编队台</h1>
+  <p>最小演示页。故障单、出海时段、用缆量与船/班组/备缆批次的编队编排通过README中的JSON接口调用。</p>
+  <h2>故障单</h2>
+  <div class="row"><button id="load">加载故障单</button><button id="stats">状态统计</button></div>
+  <h2>抢修编队</h2>
+  <div class="row">
+    <button id="formations">编队列表</button>
+    <button id="resources">资源台账与备缆余量</button>
+    <button id="advisories">建议出海时段</button>
+    <button id="backfill">回填进度</button>
+  </div>
   <pre id="output">点击上方按钮读取服务状态。</pre>
 </main>
 <script>
@@ -28,6 +37,10 @@ async function show(path) {
 }
 document.getElementById("load").onclick = () => show("/api/records?limit=20");
 document.getElementById("stats").onclick = () => show("/api/stats");
+document.getElementById("formations").onclick = () => show("/api/formations?limit=20");
+document.getElementById("resources").onclick = () => show("/api/resources");
+document.getElementById("advisories").onclick = () => show("/api/advisories");
+document.getElementById("backfill").onclick = () => show("/api/backfill/status");
 </script>
 </body>
 </html>
