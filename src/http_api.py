@@ -12,6 +12,9 @@ from .domain import Actor, DomainError, PermissionDenied, ValidationError
 RECORD_RE = re.compile(r"^/api/records/(\d+)$")
 ACTION_RE = re.compile(r"^/api/records/(\d+)/actions/([a-z_]+)$")
 AUDIT_RE = re.compile(r"^/api/records/(\d+)/audit$")
+FORMATION_RE = re.compile(r"^/api/formations/(\d+)$")
+FORMATION_ACTION_RE = re.compile(r"^/api/formations/(\d+)/(confirm|replan|cancel|complete)$")
+FORMATION_AUDIT_RE = re.compile(r"^/api/formations/(\d+)/audit$")
 
 
 def make_handler(service: Any, static_dir: Path):
@@ -87,6 +90,35 @@ def make_handler(service: Any, static_dir: Path):
                 if parsed.path == "/api/stats":
                     self._send(200, service.stats(self._actor()))
                     return
+                if parsed.path == "/api/formations":
+                    query = parse_qs(parsed.query)
+                    self._send(200, {"items": service.list_formations(self._actor(), state=query.get("state", [None])[0])})
+                    return
+                match = FORMATION_RE.match(parsed.path)
+                if match:
+                    self._send(200, service.get_formation(self._actor(), int(match.group(1))))
+                    return
+                match = FORMATION_AUDIT_RE.match(parsed.path)
+                if match:
+                    self._send(200, {"items": service.formation_timeline(self._actor(), int(match.group(1)))})
+                    return
+                if parsed.path == "/api/resources":
+                    query = parse_qs(parsed.query)
+                    self._send(200, {"items": service.list_resources(self._actor(), query.get("type", [None])[0])})
+                    return
+                if parsed.path == "/api/spare-batches":
+                    self._send(200, {"items": service.list_batches(self._actor())})
+                    return
+                if parsed.path == "/api/allocations":
+                    query = parse_qs(parsed.query)
+                    self._send(200, {"items": service.busy_allocations(self._actor(), query.get("type", [None])[0])})
+                    return
+                if parsed.path == "/api/schedule":
+                    self._send(200, service.schedule(self._actor()))
+                    return
+                if parsed.path == "/api/migration":
+                    self._send(200, service.migration_status(self._actor()))
+                    return
                 self._send(404, {"error": "not_found", "message": "路径不存在"})
             except Exception as exc:
                 self._handle_error(exc)
@@ -98,6 +130,46 @@ def make_handler(service: Any, static_dir: Path):
                 if parsed.path == "/api/records":
                     record = service.create(self._actor(), body.get("reference", ""), body.get("data", {}))
                     self._send(201, record)
+                    return
+                if parsed.path == "/api/resources":
+                    self._send(201, service.register_resource(self._actor(), body.get("data", body)))
+                    return
+                if parsed.path == "/api/spare-batches":
+                    self._send(201, service.register_batch(self._actor(), body.get("data", body)))
+                    return
+                if parsed.path == "/api/formations":
+                    data = dict(body.get("data") or body)
+                    data.setdefault("reference", body.get("reference", ""))
+                    data.setdefault("client_key", body.get("client_key", ""))
+                    result = service.submit_formation(self._actor(), data)
+                    self._send(201 if not result.get("deduplicated") else 200, result)
+                    return
+                if parsed.path == "/api/schedule/rebuild":
+                    self._send(200, service.bump_schedule(self._actor()))
+                    return
+                if parsed.path == "/api/admin/backfill":
+                    self._send(200, service.run_backfill(self._actor(), int((body.get("data") or {}).get("batch_size", 200))))
+                    return
+                if parsed.path == "/api/admin/recover":
+                    self._send(200, service.recover(self._actor()))
+                    return
+                match = FORMATION_ACTION_RE.match(parsed.path)
+                if match:
+                    result = None
+                    formation_id = int(match.group(1))
+                    action = match.group(2)
+                    if action == "confirm":
+                        result = service.confirm_formation(self._actor(), formation_id, body.get("data", {}))
+                        self._send(200, result)
+                    elif action == "replan":
+                        result = service.replan_formation(self._actor(), formation_id, body.get("data", {}))
+                        self._send(201, result)
+                    elif action == "cancel":
+                        result = service.cancel_formation(self._actor(), formation_id, body.get("data", {}))
+                        self._send(200, result)
+                    elif action == "complete":
+                        result = service.complete_formation(self._actor(), formation_id)
+                        self._send(200, result)
                     return
                 match = ACTION_RE.match(parsed.path)
                 if match:

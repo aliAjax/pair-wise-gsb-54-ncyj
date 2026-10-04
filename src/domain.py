@@ -23,6 +23,14 @@ class Conflict(DomainError):
     code = "conflict"
 
 
+class DuplicateSubmission(Conflict):
+    """并发提交同一编队时抛出，携带先落库的那一版。"""
+
+    def __init__(self, existing: Dict[str, Any]) -> None:
+        super().__init__("编队已由其他调度员提交，返回已生效版本")
+        self.existing = existing
+
+
 class PermissionDenied(DomainError):
     status = 403
     code = "permission_denied"
